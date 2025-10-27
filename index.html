@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TIMER</title>
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@200;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#000; --fg:#fff; --muted:#ffed00; --ring:#ffed00; }
+    html,body{height:100%}
+    body{ margin:0; background:#000; color:#fff; font-family:'Poppins',sans-serif; display:grid; place-items:center; position:relative; overflow:hidden; }
+    .logo-fixed{ position:fixed; top:16px; right:16px; height:40px; width:auto; opacity:.9; z-index:10; }
+    .app{ width:min(560px,92vw); text-align:center; }
+    h1{ font-size:16px; font-weight:600; margin:0 0 16px; color:var(--muted); }
+    .dial{ margin: 8px auto 0; width:min(70vw,320px); aspect-ratio:1/1; position:relative; display:grid; place-items:center; }
+    .ring{ position:absolute; inset:0; border-radius:50%;
+           background: conic-gradient(var(--ring) var(--p,0%), rgba(255,255,255,.1) 0);
+           -webkit-mask: radial-gradient(circle at 50% 50%, transparent 54%, #000 55%);
+                   mask: radial-gradient(circle at 50% 50%, transparent 54%, #000 55%);
+    }
+    .time{ font-variant-numeric: tabular-nums; font-size: clamp(48px, 14vw, 92px); font-weight:700; letter-spacing:1px; }
+    .controls{ display:flex; gap:40px; justify-content:center; margin-top:24px; }
+    button.ctrl{ -webkit-tap-highlight-color:transparent; cursor:pointer; user-select:none; width:56px;height:56px; padding:0; border:none; background:transparent; display:inline-flex; align-items:center; justify-content:center; }
+    button.ctrl img{ width:56px; height:56px; display:block; }
+    button.ctrl:disabled{ opacity:.55; cursor:not-allowed; }
+    .hint{ margin-top:14px; font-size:12px; color:var(--muted); font-weight:400; }
+  </style>
+</head>
+<body>
+  <img src="assets/LOGO_Follia.png" alt="FoLl.iA" class="logo-fixed">
+  <div class="app">
+    <h1>TIMER</h1>
+    <div class="dial" aria-hidden="true">
+      <div class="ring" id="ring" style="--p:0%"></div>
+      <div class="time" id="time" aria-live="polite">02:45</div>
+    </div>
+    <div class="controls">
+      <button class="ctrl" id="startPause" aria-label="Avvia/Pausa" title="Avvia/Pausa"><img src="assets/PLAY.png" alt="Play"></button>
+      <button class="ctrl" id="resetBtn" aria-label="Reset" title="Reset" disabled><img src="assets/RESET.png" alt="Reset"></button>
+    </div>
+    <div class="hint">Spazio = Avvia/Pausa · R = Reset</div>
+  </div>
+  <script>
+    if ('serviceWorker' in navigator){ window.addEventListener('load', ()=> navigator.serviceWorker.register('service-worker.js')); }
+    const DEFAULT_SECONDS = 165; // 2:45
+    let remaining = DEFAULT_SECONDS * 1000;
+    let running = false;
+    let lastTick = null;
+    let rafId = null;
+    const timeEl = document.getElementById('time');
+    const ringEl = document.getElementById('ring');
+    const startPauseBtn = document.getElementById('startPause');
+    const resetBtn = document.getElementById('resetBtn');
+    const fmt = (ms) => { const s = Math.max(0, Math.ceil(ms/1000)); const m = Math.floor(s/60); const sec = s%60; return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`; };
+    function updateUI(){
+      timeEl.textContent = fmt(remaining);
+      resetBtn.disabled = running || remaining === DEFAULT_SECONDS*1000;
+      const ratio = 1 - (remaining / (DEFAULT_SECONDS*1000));
+      ringEl.style.setProperty('--p', Math.max(0, Math.min(100, ratio*100)) + '%');
+    }
+    function tick(ts){
+      if(!running) return;
+      if(lastTick==null) lastTick = ts;
+      const delta = ts - lastTick; lastTick = ts;
+      remaining -= delta;
+      if(remaining <= 0){ remaining = 0; pause(); }
+      updateUI();
+      rafId = requestAnimationFrame(tick);
+    }
+    function start(){ if(running) return; running = true; lastTick = null; updateUI(); rafId = requestAnimationFrame(tick); }
+    function pause(){ running = false; if(rafId) cancelAnimationFrame(rafId); updateUI(); }
+    function reset(){ remaining = DEFAULT_SECONDS*1000; updateUI(); }
+    startPauseBtn.addEventListener('click', ()=>{ running ? pause() : start(); });
+    resetBtn.addEventListener('click', reset);
+    window.addEventListener('keydown', (e)=>{ if(e.code==='Space'){ e.preventDefault(); running?pause():start(); } if(e.key.toLowerCase()==='r'){ reset(); } });
+    updateUI();
+  </script>
+</body>
+</html>
